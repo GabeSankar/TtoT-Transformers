@@ -1,0 +1,6 @@
+*.json filter=lfs diff=lfs merge=lfs -text
+test.json filter=lfs diff=lfs merge=lfs -text
+train.json filter=lfs diff=lfs merge=lfs -text
+OldDatasets/ex.json filter=lfs diff=lfs merge=lfs -text
+OldDatasets/test.json filter=lfs diff=lfs merge=lfs -text
+OldDatasets/train.json filter=lfs diff=lfs merge=lfs -text
