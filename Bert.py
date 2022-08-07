@@ -17,9 +17,10 @@ class Bert:
         # del self.model
         # del self.trainer
 
-        #self.DatasetReparser("OldDatasets/train.json", "train.json")
-        #self.DatasetReparser("OldDatasets/test.json", "test.json")
-
+        self.DatasetReparser("OldDatasets/train.json", "train.json")
+        print("done reparsing train.json")
+        self.DatasetReparser("OldDatasets/test.json", "test.json")
+        print("done reparsing test.json")
         torch.cuda.empty_cache()
 
         self.configuration = BertConfig()
@@ -104,8 +105,9 @@ class Bert:
             docTitle = "document title: " + unfilteredData["doc_title"] + " | "
             docTitleBPE = "document title with bpe: " + unfilteredData["doc_title_bpe"] + " | "
             SecTitle = "section title: " + ' - '.join(unfilteredData["sec_title"]) + " | "
-            text = unfilteredData["text"]
-            finalLine= "{\"input\":"+"\"" + docTitle + docTitleBPE + SecTitle + data + "\", " + "\"text\":" + "\"" + text +"\"}\n"
+            text = json.dumps(unfilteredData["text"])
+            finalInput = docTitle + docTitleBPE + SecTitle + data
+            finalLine= "{\"input\":"+ json.dumps(finalInput) + ", " + "\"text\":" + text +"}\n"
             nf.write(finalLine)
 
 
