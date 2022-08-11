@@ -2,7 +2,8 @@ from transformers import BertModel, BertConfig, BertTokenizer, TrainingArguments
 from datasets import load_dataset, load_metric
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
-
+import os
+from datasets.combine import concatenate_datasets
 import numpy as np
 import json
 import torch
@@ -22,35 +23,40 @@ class Bert:
         self.DatasetReparser("OldDatasets/test.json", "test.json")
         print("done reparsing test.json")
         torch.cuda.empty_cache()
-
+        os.environ["TOKENIZERS_PARALLELISM"] = "false"
         self.configuration = BertConfig()
 
         self.model = BertModel(self.configuration)
 
-        # self.tokenizer = BertTokenizer(vocab_file=vocabFile, do_lower_case=onlyLowercase, do_basic_tokenize=wordPiece)
-        self.tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+        self.tokenizer = BertTokenizer(vocab_file=vocabFile, do_lower_case=onlyLowercase)
+        #self.tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
 
-        datasetTrain = load_dataset("json", data_files="train.json")
-        datasetTest = load_dataset("json", data_files="test.json")
+        datasetFiles = {"train": "train.json", "test": "test.json"}
+        dataset = load_dataset("json", data_files=datasetFiles)
+        print(dataset)
+        tokenized_dataset = dataset.map(self.tokenizer_function, batched=True)
 
-        tokenized_datasetTest = datasetTrain.map(self.tokenizer_function, batched=True)
-        tokenized_datasetTrain = datasetTest.map(self.tokenizer_function, batched=True)
 
         train_args = TrainingArguments(output_dir="Trainer", evaluation_strategy="epoch")
 
         self.metric = load_metric("accuracy")
 
         #self.trainer = Trainer(model=self.model, args=train_args, train_dataset=train_dataset, eval_dataset=test_dataset, compute_metrics=self.metric)
+        #tokenized_dataset.remove_column(["input"])
+        #tokenized_dataset.rename_column("text", "labels")
+        #tokenized_dataset.set_format("torch")
+        print(tokenized_dataset)
+        small_train_dataset = tokenized_dataset["train"].shuffle(seed=42).select(range(1000))
+        small_test_dataset = tokenized_dataset["test"].shuffle(seed=42).select(range(1000))
 
-        self.train_dataloader = DataLoader(tokenized_datasetTrain, shuffle=True, batch_size=8)
+        self.train_dataloader = DataLoader(small_train_dataset, shuffle=True, batch_size=8)
 
-        self.eval_dataloader = DataLoader(tokenized_datasetTest, batch_size=8)
+        self.eval_dataloader = DataLoader(small_test_dataset, batch_size=8)
 
         if torch.cuda.is_available():
             self.device = torch.device("cuda")
         else:
             self.device = torch.device("cpu")
-
     def train(self, num_epochs):
 
         num_training_steps = num_epochs * len(self.train_dataloader)
@@ -86,7 +92,7 @@ class Bert:
         self.metric.compute()
 
     def tokenizer_function(self, example):
-        return self.tokenizer(json.dumps(example["input"]), example["target_text"], truncation=True)
+        return self.tokenizer(example["input"], example["text"], truncation=True)
 
     #Note that this is only for wiki bio
     def DatasetReparser(self, originalFileDir, NewFileDir):
@@ -97,7 +103,7 @@ class Bert:
             print("done w/ json data")
 
         for unfilteredData in json_data:
-            print("in loop")
+            #print("in loop")
             data_buffer = []
             for element in unfilteredData['data']:
                 data_buffer.append(' - '.join(element))
@@ -109,9 +115,5 @@ class Bert:
             finalInput = docTitle + docTitleBPE + SecTitle + data
             finalLine= "{\"input\":"+ json.dumps(finalInput) + ", " + "\"text\":" + text +"}\n"
             nf.write(finalLine)
-
-
-
-
 
 
